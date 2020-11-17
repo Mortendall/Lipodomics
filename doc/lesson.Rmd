@@ -1,0 +1,14 @@
+---
+title: "Draft R Markdown document"
+author: "Your Name"
+output: html_document
+---
+
+```{r}
+
+
+
+setup <- read.xlsx(here("data_raw/setup.xlsx"))
+
+```
+
