@@ -8,7 +8,5 @@ output: html_document
 
 
 
-setup <- read.xlsx(here("data_raw/setup.xlsx"))
-
 ```
 
