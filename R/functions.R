@@ -6,7 +6,8 @@ library(vroom)
 library(openxlsx)
 library(here)
 library(fs)
-
+library(pheatmap)
+library(data.table)
 
 
 #' Lipodomics data loader
@@ -37,6 +38,43 @@ load_metadata <- function(file_name) {
                           recurse = T)
   metadata <- openxlsx::read.xlsx(xlsxFile = data_file)
   return(metadata)
+}
+
+#' Select proteins without too many samples missing
+#'
+#' @param input_data a count matrix
+#' @param meta_data your sample groups. ID should be named "Group"
+#' @param cutoff cutoff for how many missing samples in a group are too many
+#'
+#' @return a count matrix where the samples with too few counts are removed
+
+select_sufficient_counts <- function(input_data, meta, cutoff) {
+  missingSamples <- data.table(input_data==0, keep.rownames = TRUE) %>%
+    melt(measure.vars = colnames(input_data), variable.name = "sample")
+
+  setnames(missingSamples,"rn", "Lipid")
+  setnames(missingSamples, "sample", "ID")
+  meta <- as.data.table(meta)
+  meta$ID<-as.factor(meta$ID)
+
+  setkey(meta, ID)
+  missingSamples <- merge(meta, missingSamples, by = "ID")
+  missingSamples<- missingSamples %>%
+    group_by(Group, Lipid) %>%
+    summarise(nMissing = sum(value)) %>%
+    pivot_wider(names_from = Group, values_from = nMissing)
+
+  cutoff <- 2
+  tooManyMissing <- missingSamples %>%
+    group_by(Lipid) %>%
+    filter(KO_Control > cutoff |
+             KO_NR > cutoff |
+             WT_Control > cutoff |
+             WT_NR > cutoff)
+  results <- as.data.frame(input_data)
+  results <- results %>%
+    filter(!rownames(results) %in% tooManyMissing$Lipid)
+  return(results)
 }
 
 #' Quality control generator
@@ -139,13 +177,12 @@ Quality_control_plots <- function(count_matrix, setup) {
 #' @param proteome_key
 #'
 #' @return a DEG analysis
-meta <- setup
-data <- count_matrix
-all(setup$ID==colnames(count_matrix))
+
 DEG_analysis <- function(data, meta){
+  res <- normalizeBetweenArrays(log(as.matrix(data)), method = "quantile")
   design <- stats::model.matrix( ~0+Group, meta)
   colnames(design) <- str_remove_all(colnames(design), "Group")
-  fit <- limma::lmFit(data, design = design, method = "robust")
+  fit <- limma::lmFit(res, design = design, method = "robust")
   fit<- eBayes(fit)
 
   cont.matrix <- makeContrasts(
@@ -169,7 +206,7 @@ DEG_analysis <- function(data, meta){
   )
   View(resultTables)
   write.xlsx(resultTables, file = here("data/limma_results.xlsx"))
-  return(NASH_vs_con)
+  return(resultTables)
 }
 
 
@@ -187,37 +224,36 @@ load_limma_data <- function(file_name) {
   return(limma_analysis)
 }
 
-#' Gene ontology enrichment analysis of genes generated from a results file
+#' Generates and saves a heatmap of lipids
 #'
-#' @param result_list results table generated from limma. Must be data.table and contain a SYMBOL annotation column
-#'
-#' @return a list containing enrichresults for each element in the results file list
+#' @param count_matrix generated with the proteome data loader
 
+heatmap <- function(count_matrix, meta){
+  annotation <- as.data.frame(setup$Group)
+  colnames(annotation)<-"Group"
+  rownames(annotation) <- setup$ID
 
-goAnalysis <- function(result_list){
-  result_list <- as.data.table(result_list)
-  bg_list <- clusterProfiler::bitr(
-    result_list$Gene,
-    fromType = "SYMBOL",
-    toType = "ENTREZID",
-    OrgDb = "org.Hs.eg.db",
-    drop = T
+  heatmap <- pheatmap(count_matrix,
+                      treeheight_col = 0,
+                      treeheight_row = 0,
+                      scale = "row",
+                      legend = T,
+                      na_col = "white",
+                      Colv = NA,
+                      na.rm = T,
+                      cluster_cols = F,
+                      show_rownames = F,
+                      fontsize_row = 8,
+                      fontsize_col = 8,
+                      cellwidth = 8,
+                      cellheight = 1.5,
+                      annotation_col = annotation
   )
 
-  sig_list<- result_list %>%
-    dplyr::filter(adj.P.Val<0.05)
+  ggsave(heatmap, filename = here("data/figures/NAD_heatmap.png"), scale = 1.5)
+  return(heatmap)
 
-  eg <- clusterProfiler::bitr(
-    sig_list$Gene,
-    fromType = "SYMBOL",
-    toType = "ENTREZID",
-    OrgDb = "org.Hs.eg.db",
-    drop = T
-  )
-  goResults <- clusterProfiler::enrichGO(gene = eg$ENTREZID,
-                                         universe = bg_list$ENTREZID,
-                                         OrgDb = org.Hs.eg.db,
-                                         ont = "BP")
-
-  return(goResults)
 }
+
+
+

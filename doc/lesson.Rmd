@@ -8,5 +8,81 @@ output: html_document
 
 
 
+volcano_plot <-  ggplot(lipodomics_results$Treatment_in_WT, aes(x = logFC, y = -log10(adj.P.Val))) +
+  geom_point()
+
+volcano_plot
+
+ggsave(volcano_plot, filename = here( "data/figures/NAD_terms.png"), scale = 2.5)
+
+
+```
+
+```{r}
+
+candidates <- lipodomics_results[["KO_in_Control"]]
+candidates <- candidates %>% 
+  filter(adj.P.Val<0.05)
+
+candidates_matrix <- count_matrix
+candidates_matrix<-candidates_matrix %>% 
+  filter(rownames(candidates_matrix)%in%candidates$rn)
+
+  annotation <- as.data.frame(setup$Group)
+  colnames(annotation)<-"Group"
+  rownames(annotation) <- setup$ID
+
+  heatmap <- pheatmap(candidates_matrix,
+                      treeheight_col = 0,
+                      treeheight_row = 0,
+                      scale = "row",
+                      legend = T,
+                      na_col = "white",
+                      Colv = NA,
+                      na.rm = T,
+                      cluster_cols = F,
+                      show_rownames = T,
+                      fontsize_row = 8,
+                      fontsize_col = 8,
+                      cellwidth = 8,
+                      cellheight = 8,
+                      annotation_col = annotation
+  )
+
+  
+  candidates <- lipodomics_results[["Treatment_in_WT"]]
+candidates <- candidates %>% 
+  filter(adj.P.Val<0.05)
+
+candidates_matrix <- count_matrix
+candidates_matrix<-candidates_matrix %>% 
+  filter(rownames(candidates_matrix)%in%candidates$rn)
+
+  annotation <- as.data.frame(setup$Group)
+  colnames(annotation)<-"Group"
+  rownames(annotation) <- setup$ID
+
+  heatmap <- pheatmap(candidates_matrix,
+                      treeheight_col = 0,
+                      treeheight_row = 0,
+                      scale = "row",
+                      legend = T,
+                      na_col = "white",
+                      Colv = NA,
+                      na.rm = T,
+                      cluster_cols = F,
+                      show_rownames = T,
+                      fontsize_row = 8,
+                      fontsize_col = 8,
+                      cellwidth = 8,
+                      cellheight = 8,
+                      annotation_col = annotation
+  )
+
+  TAG_data <- count_matrix %>% 
+    filter(rownames(count_matrix)=="TAG")
+
+  
+    
 ```
 
