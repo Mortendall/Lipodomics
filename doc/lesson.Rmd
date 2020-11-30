@@ -86,3 +86,12 @@ candidates_matrix<-candidates_matrix %>%
     
 ```
 
+```{r}
+
+
+
+
+test <- multiple_t_test_lipids(count_matrix_groups, setup)
+    
+```
+

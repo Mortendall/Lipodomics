@@ -8,6 +8,9 @@ library(here)
 library(fs)
 library(pheatmap)
 library(data.table)
+library(PoiClaClu)
+library(RColorBrewer)
+library(rstatix)
 
 
 #' Lipodomics data loader
@@ -17,7 +20,7 @@ library(data.table)
 #' @return a trimmed count matrix
 
 count_file_loader <- function(file_type){
-  count_file <- fs::dir_ls(here("data-raw/"),
+  count_file <- fs::dir_ls(here::here("data-raw/"),
                            regexp = file_type,
                            recurse = TRUE)
   count_data <- read.xlsx(count_file)
@@ -179,7 +182,8 @@ Quality_control_plots <- function(count_matrix, setup) {
 #' @return a DEG analysis
 
 DEG_analysis <- function(data, meta){
-  res <- normalizeBetweenArrays(log(as.matrix(data)), method = "quantile")
+  res <- data
+  #res <- normalizeBetweenArrays(log(as.matrix(data)), method = "quantile")
   design <- stats::model.matrix( ~0+Group, meta)
   colnames(design) <- str_remove_all(colnames(design), "Group")
   fit <- limma::lmFit(res, design = design, method = "robust")
@@ -256,4 +260,35 @@ heatmap <- function(count_matrix, meta){
 }
 
 
+#' Compares lipid abundance through multiple t-tests
+#'
+#' @param count_matrix
+#' @param setup a setup file containg group, ID and other info
+#'
+#' @return a data frame with multiple comparisons
 
+
+multiple_t_test_lipids <- function(count_matrix, setup) {
+  count_matrix_groups_long <- count_matrix %>%
+    dplyr::mutate(Lipid = rownames(count_matrix)) %>%
+    pivot_longer(cols = -Lipid ,
+                 names_to = "ID",
+                 values_to = "molar_percentage")
+
+  setup$ID <- as.character(setup$ID)
+  colnames(count_matrix) <- as.character(colnames(count_matrix))
+  setup_merge <- setup %>%
+    dplyr::select(ID, Group)
+  joined_matrix <-
+    right_join(count_matrix_groups_long,
+               setup_merge,
+               by = "ID",
+               keep = F)
+  stat_test <- joined_matrix %>%
+    group_by(Lipid) %>%
+    dplyr::select(-ID) %>%
+    t_test(molar_percentage ~ Group) %>%
+    adjust_pvalue(method = "BH") %>%
+    add_significance()
+  return(stat_test)
+}
