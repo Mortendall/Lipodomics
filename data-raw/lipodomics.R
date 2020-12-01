@@ -12,13 +12,7 @@ setup <- setup %>%
 #Might not be beneficial to remove low counts as data are percentile
 #count_matrix <- select_sufficient_counts(count_matrix,setup,2)
 
-#split the file into the two subgroups
-count_matrix_groups <- count_matrix[217:238,]
-count_matrix_sub <- count_matrix[1:216,]
 
-#sum(count_matrix_groups/26)
-#sum(count_matrix_sub/26)
-#now data are organized as 100% pr column
 
 
 #as data is normalized pr info from Mesut, they should be directly comparable
@@ -36,23 +30,35 @@ colnames(count_matrix) <- as.integer(colnames(count_matrix))
 count_matrix <- count_matrix %>%
   dplyr::select(-"330")
 
+all(setup$ID==colnames(count_matrix))
+
 count_matrix_groups <- count_matrix[217:238,]
 count_matrix_sub <- count_matrix[1:216,]
 
 
-all(setup$ID==colnames(count_matrix))
-
-#LPC O- causes problems for analysis so remove it
-count_matrix_groups <- count_matrix_groups %>%
-  dplyr::filter(rownames(count_matrix_groups)!="LPC O-")
-
-lipodomics_results <- DEG_analysis(count_matrix_groups, setup)
+#sum(count_matrix_groups/26)
+#sum(count_matrix_sub/26)
+#now data are organized as 100% pr column
 
 
-count_matrix_sub <- select_sufficient_counts(count_matrix_sub,setup,2)
-
-lipodomics_results_sub <- DEG_analysis(count_matrix_sub, setup)
+test_group <- multiple_t_test_lipids(count_matrix_groups, setup)
+test_sub <- multiple_t_test_lipids(count_matrix_sub, setup)
 
 #heatmap<-heatmap(count_matrix,setup)
+
+#Repeat for analysis without TG and cholesterol
+
+
+count_matrix_lim <- count_file_loader("lipid_NR_no_TAG_chol.xlsx")
+count_matrix_lim <- count_matrix_lim %>%
+  dplyr::select(-"330")
+
+all(setup$ID==colnames(count_matrix))
+
+count_matrix_lim_groups <- count_matrix_lim[206:225,]
+count_matrix_lim_sub <- count_matrix_lim[1:205,]
+
+test_lim_group <- multiple_t_test_lipids(count_matrix_lim_groups, setup)
+test_lim_sub <- multiple_t_test_lipids(count_matrix_lim_sub, setup)
 
 

@@ -83,15 +83,180 @@ candidates_matrix<-candidates_matrix %>%
     filter(rownames(count_matrix)=="TAG")
 
   
+  sig_lipids <- test_lim_group %>% 
+    dplyr::filter(p.adj<0.05) %>% 
+    dplyr::select(Lipid)
+  candidate_lipids <- count_matrix_lim_groups %>% 
+    dplyr::filter(rownames(count_matrix_lim_groups) %in% sig_lipids$Lipid)
+  
+  annotation <- as.data.frame(setup$Group)
+  colnames(annotation)<-"Group"
+  rownames(annotation) <- setup$ID
+  
+  heatmap <- pheatmap(candidate_lipids,
+                      treeheight_col = 0,
+                      treeheight_row = 0,
+                      scale = "row",
+                      legend = T,
+                      na_col = "white",
+                      Colv = NA,
+                      na.rm = T,
+                      cluster_cols = F,
+                      show_rownames = T,
+                      fontsize_row = 8,
+                      fontsize_col = 8,
+                      cellwidth = 8,
+                      cellheight = 8,
+                      annotation_col = annotation
+  )
+  ggsave(
+    heatmap,
+    filename = here::here("data/significantly_altered_lipids_heatmap.png"),
+    units = "cm",
+    width = 14,
+    height = 10
+  )
+  heatmap_all <- pheatmap(count_matrix_lim_groups,
+                      treeheight_col = 0,
+                      treeheight_row = 0,
+                      scale = "row",
+                      legend = T,
+                      na_col = "white",
+                      Colv = NA,
+                      na.rm = T,
+                      cluster_cols = F,
+                      show_rownames = T,
+                      fontsize_row = 8,
+                      fontsize_col = 8,
+                      cellwidth = 8,
+                      cellheight = 8,
+                      annotation_col = annotation
+  )
+  
+  ggsave(
+    heatmap_all,
+    filename = here::here("data/all_lipids_heatmap.png"),
+    units = "cm",
+    width = 14,
+    height = 10
+  )
+  
     
 ```
 
 ```{r}
 
+summary_lipids <- candidate_lipids %>% 
+  dplyr::mutate(Lipids = rownames(candidate_lipids)) %>% 
+  tidyr::pivot_longer(-Lipids, 
+               names_to = "ID",
+                 values_to = "molar_percentage")
+
+setup$ID <- as.character(setup$ID)
+  colnames(summary_lipids) <- as.character(colnames(summary_lipids))
+  setup_merge <- setup %>%
+    dplyr::select(ID, Group)
+  summary_lipids <-
+    right_join(summary_lipids,
+               setup_merge,
+               by = "ID",
+               keep = F)
 
 
-
-test <- multiple_t_test_lipids(count_matrix_groups, setup)
+  summary_lipids <- summary_lipids %>% 
+    dplyr::select(-ID) %>% 
+    group_by(Group, Lipids) %>% 
+    get_summary_stats(molar_percentage, type = "mean_se")
+  
+  column_order <- c("WT_Control", "KO_Control", "WT_NR", "KO_NR")
+  
+  summary_lipids<- summary_lipids %>%
+  dplyr::mutate(Group = factor(Group,levels = column_order))
+ PI_plot<-ggplot(subset(summary_lipids, Lipids == "PI"), aes(x = Group, y = mean, fill = Group))+
+  geom_col()+
+   geom_errorbar(aes(ymin = mean - se,
+                    ymax = mean + se,
+                    width = 0.1))+
+   ylab("Molar %")+
+   theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        legend.position = "none",
+        axis.text.x=element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(size = 14))+
+   ggtitle("PI")+
+   xlab("")
+ 
+  
+    HexCer_plot<-ggplot(subset(summary_lipids, Lipids == "HexCer"), aes(x = Group, y = mean, fill = Group))+
+  geom_col()+
+   geom_errorbar(aes(ymin = mean - se,
+                    ymax = mean + se,
+                    width = 0.1))+
+      ylab("Molar %")+
+   theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        legend.position = "none",
+        axis.text.x=element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(size = 14))+
+   ggtitle("HexCer")+
+   xlab("")
     
+    LPE_plot<-ggplot(subset(summary_lipids, Lipids == "LPE"), aes(x = Group, y = mean, fill = Group))+
+  geom_col()+
+   geom_errorbar(aes(ymin = mean - se,
+                    ymax = mean + se,
+                    width = 0.1))+
+      ylab("Molar %")+
+   theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        legend.position = "none",
+        axis.text.x=element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(size = 14))+
+   ggtitle("LPE")+
+   xlab("")
+    
+     PE_plot<-ggplot(subset(summary_lipids, Lipids == "PE O-"), aes(x = Group, y = mean, fill = Group))+
+  geom_col()+
+   geom_errorbar(aes(ymin = mean - se,
+                    ymax = mean + se,
+                    width = 0.1))+
+      ylab("Molar %")+
+   theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        legend.position = "none",
+        axis.text.x=element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(size = 14))+
+   ggtitle("PE O-")+
+   xlab("")
+      
+     PG_plot<-ggplot(subset(summary_lipids, Lipids == "PG"), aes(x = Group, y = mean, fill = Group))+
+  geom_col()+
+   geom_errorbar(aes(ymin = mean - se,
+                    ymax = mean + se,
+                    width = 0.1))+
+      ylab("Molar %")+
+   theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        legend.position = "none",
+        axis.text.x=element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(size = 14))+
+   ggtitle("PG")+
+   xlab("")
+    
+    PS_plot<-ggplot(subset(summary_lipids, Lipids == "PS"), aes(x = Group, y = mean, fill = Group))+
+  geom_col()+
+   geom_errorbar(aes(ymin = mean - se,
+                    ymax = mean + se,
+                    width = 0.1))+
+      ylab("Molar %")+
+   theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        legend.position = "none",
+        axis.text.x=element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size = 12, face = "bold"),
+        axis.title.y = element_text(size = 14))+
+   ggtitle("PS")+
+   xlab("")
+      
+     
 ```
 
